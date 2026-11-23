@@ -51,6 +51,7 @@ Browsers won't let a page start audio processing until you've clicked or pressed
 Open `index.html` in Chrome or Edge, or host it anywhere static, like GitHub Pages. Then choose a source:
 
 - **Share a YouTube tab**: pick the YouTube tab in the share picker and turn on **Share tab audio**. The visuals follow whatever that tab plays.
+- **Play the sample song**: a bundled instrumental track, good for a quick look. This needs the hosted page; opened straight from your disk, use **Open an audio file** and pick `samples/voxel-revolution.mp3` instead.
 - **Open an audio file**, **Microphone**, or **Demo beat**.
 
 Keys: `[` / `]` change the visualization, `F` or a double-click goes full screen.
@@ -59,6 +60,7 @@ Keys: `[` / `]` change the visualization, `F` or a double-click goes full screen
 
 ```
 index.html               standalone web visualizer
+samples/                 bundled sample song (see Credits)
 extension/
   manifest.json          Manifest V3 extension
   visualizer.js          visualization engine + all presets (shared with index.html)
@@ -89,3 +91,8 @@ Add an entry to the `PRESETS` array in `extension/visualizer.js`:
 ```
 
 The visualizations here are original works made in the spirit of the classic media player visualizers.
+
+## Credits
+
+Sample song: “Voxel Revolution” by Kevin MacLeod ([incompetech.com](https://incompetech.com)).
+Licensed under [Creative Commons: By Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
