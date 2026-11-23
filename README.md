@@ -54,7 +54,24 @@ Open `index.html` in Chrome or Edge, or host it anywhere static, like GitHub Pag
 - **Play the sample song**: a bundled instrumental track, good for a quick look. This needs the hosted page; opened straight from your disk, use **Open an audio file** and pick `samples/voxel-revolution.mp3` instead.
 - **Open an audio file**, **Microphone**, or **Demo beat**.
 
-Keys: `[` / `]` change the visualization, `F` or a double-click goes full screen.
+Keys: `[` / `]` change the visualization, `F` or a double-click goes full screen, `M` opens the source menu, `1`–`8` jump to a visualization.
+
+### On a TV (smart TV browser, Fire TV, Android TV)
+
+Open the hosted page in the TV's web browser and use the remote:
+
+| Remote button | What it does |
+|---|---|
+| Arrows + **OK** | Pick a source in the menu (the selected button gets a yellow outline) |
+| ◀ ▶ while playing | Previous / next visualization |
+| **OK** or ▲ ▼ while playing | Show the control bar; arrows move along it, OK presses a button |
+| **Back** | Hide the control bar, then open the source menu |
+| Play/Pause | Pause or resume the song |
+| Channel +/–, ⏭ ⏮ | Next / previous visualization |
+| Number keys 1–8 | Jump straight to a visualization |
+| Red / Green / Yellow / Blue | Random visual / auto-change on-off / full screen / menu |
+
+The control bar hides itself after 5 seconds. TV browsers can't share another tab or app's audio, so on a TV use **Play the sample song** or **Open an audio file**; those options are hidden when the browser can't support them. To visualize YouTube on the TV, run the page on a computer with **Share a YouTube tab** and mirror or cast that screen to the TV.
 
 ## Files
 

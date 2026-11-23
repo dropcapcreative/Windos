@@ -23,13 +23,30 @@
     background: var(--bg);
     color: var(--text);
     font: 14px/1.45 "Segoe UI", Tahoma, Roboto, Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
   }
+  body.hide-cursor { cursor: none; }
 
-  #stage { position: relative; flex: 1; min-height: 0; background: #000; }
-  #viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Older TV browsers don't know `inset`, so spell out the edges. */
+  #stage { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; }
+  #viz { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+
+  /* Highlight for TV remote / keyboard navigation. Plain :focus so old TV browsers apply it. */
+  body.using-keys .nav:focus {
+    outline: 3px solid #ffd54a;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 7px rgba(255, 213, 74, 0.3);
+  }
+  body.using-keys .src.nav:focus { background: linear-gradient(180deg, rgba(255,213,74,.22), rgba(255,213,74,.05)); }
+
+  #toast {
+    position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+    padding: 8px 14px; border-radius: 6px; max-width: calc(100% - 32px);
+    background: rgba(0,0,0,.72); border: 1px solid var(--edge);
+    font-size: 15px; text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity .35s;
+  }
+  #toast.show { opacity: 1; }
 
   #title {
     position: absolute; left: 18px; top: 16px;
@@ -44,12 +61,13 @@
 
   /* Welcome card */
   #welcome {
-    position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
     background: radial-gradient(ellipse at center, rgba(4,8,20,.55), rgba(0,0,0,.85));
   }
   #welcome.hidden { display: none; }
   .card {
-    width: min(600px, 100%);
+    width: 100%; max-width: 600px;
     background: linear-gradient(180deg, var(--panel-top), var(--panel-bot));
     border: 1px solid var(--edge); border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.12);
@@ -71,17 +89,22 @@
   .src.featured { grid-column: 1 / -1; }
   .tip { margin-top: 14px; font-size: 12px; color: var(--muted); }
   .tip a { color: var(--accent); }
+  .remote-tip { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .remote-tip b { color: var(--text); }
   #error { margin-top: 10px; color: #ff8f8f; font-size: 13px; min-height: 1em; }
 
   /* Transport bar */
   #bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 8px 16px;
+    transition: transform .3s, opacity .3s;
     background: linear-gradient(180deg, var(--panel-top), var(--panel-bot));
     border-top: 1px solid var(--edge);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
   }
-  body.immersive #bar { display: none; }
+  body.bar-hidden #bar { transform: translateY(110%); opacity: 0; visibility: hidden; transition: transform .3s, opacity .3s, visibility 0s .3s; }
+  .orb.hidden, .src.hidden { display: none; }
   .orb {
     width: 38px; height: 38px; border-radius: 50%; padding: 0; cursor: pointer;
     display: grid; place-items: center; color: var(--text);
@@ -105,7 +128,7 @@
     padding: 6px 10px; border-radius: 14px; border: 1px solid var(--edge); background: rgba(255,255,255,.05);
   }
   .chip:hover { border-color: var(--accent); }
-  #credit { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #credit { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30vw; }
   #credit a { color: var(--accent); }
   #credit:empty { display: none; }
   #player { height: 30px; max-width: 260px; display: none; }
@@ -117,36 +140,39 @@
 <div id="stage">
   <canvas id="viz"></canvas>
   <div id="title"></div>
+  <div id="toast" role="status"></div>
 
   <div id="welcome">
     <div class="card">
       <h1>Retrowave Visualizer</h1>
       <p>Old-school media player visualizations for whatever you're listening to. Pick a sound source:</p>
       <div class="sources">
-        <button class="src featured" data-src="tab"><b>Share a YouTube tab</b><span>Choose the tab in the picker and turn on “Share tab audio”. Chrome or Edge.</span></button>
-        <button class="src featured" data-src="sample"><b>Play the sample song</b><span>“Voxel Revolution”, an instrumental by Kevin MacLeod.</span></button>
-        <button class="src" data-src="file"><b>Open an audio file</b><span>MP3, WAV, M4A, OGG…</span></button>
-        <button class="src" data-src="mic"><b>Microphone</b><span>Visualize the room.</span></button>
-        <button class="src" data-src="demo"><b>Demo beat</b><span>A built-in synth loop to preview the visuals.</span></button>
+        <button class="nav src featured" data-src="tab"><b>Share a YouTube tab</b><span>Choose the tab in the picker and turn on “Share tab audio”. Chrome or Edge.</span></button>
+        <button class="nav src featured" data-src="sample"><b>Play the sample song</b><span>“Voxel Revolution”, an instrumental by Kevin MacLeod.</span></button>
+        <button class="nav src" data-src="file"><b>Open an audio file</b><span>MP3, WAV, M4A, OGG…</span></button>
+        <button class="nav src" data-src="mic"><b>Microphone</b><span>Visualize the room.</span></button>
+        <button class="nav src" data-src="demo"><b>Demo beat</b><span>A built-in synth loop to preview the visuals.</span></button>
       </div>
       <div id="error" role="alert"></div>
+      <div class="remote-tip"><b>TV remote:</b> arrows + OK to pick. While it plays, ◀ ▶ change the visual, OK shows the controls, Back opens this menu.</div>
       <div class="tip">Want it right on top of the YouTube player instead? Install the browser extension in the <code>extension/</code> folder (see the README). It starts on its own when music plays.</div>
     </div>
   </div>
 </div>
 
 <div id="bar">
-  <button class="orb" id="prev" title="Previous visualization  [" aria-label="Previous visualization"><svg viewBox="0 0 24 24"><path d="M15.5 5 8.5 12l7 7 1.4-1.4L11.3 12l5.6-5.6z"/></svg></button>
+  <button class="nav orb" id="prev" title="Previous visualization  [" aria-label="Previous visualization"><svg viewBox="0 0 24 24"><path d="M15.5 5 8.5 12l7 7 1.4-1.4L11.3 12l5.6-5.6z"/></svg></button>
   <div id="presetName"></div>
-  <button class="orb" id="next" title="Next visualization  ]" aria-label="Next visualization"><svg viewBox="0 0 24 24"><path d="M8.5 5 7.1 6.4l5.6 5.6-5.6 5.6L8.5 19l7-7z"/></svg></button>
-  <button class="orb" id="shuffle" title="Random visualization" aria-label="Random visualization"><svg viewBox="0 0 24 24"><path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2 1.4-1.4zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4h-5.5zm.3 9.4-1.4 1.4 3.1 3.1-2 2H20v-5.5l-2 2-3.2-3z"/></svg></button>
-  <button class="orb on" id="cycle" title="Auto-change every 30 s" aria-label="Toggle auto-change" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 6V3L8 7l4 4V8a4 4 0 0 1 4 4 4 4 0 0 1-.5 1.9l1.5 1.5A6 6 0 0 0 12 6zm-4 6a4 4 0 0 1 .5-1.9L7 8.6A6 6 0 0 0 12 18v3l4-4-4-4v3a4 4 0 0 1-4-4z"/></svg></button>
+  <button class="nav orb" id="next" title="Next visualization  ]" aria-label="Next visualization"><svg viewBox="0 0 24 24"><path d="M8.5 5 7.1 6.4l5.6 5.6-5.6 5.6L8.5 19l7-7z"/></svg></button>
+  <button class="nav orb" id="shuffle" title="Random visualization" aria-label="Random visualization"><svg viewBox="0 0 24 24"><path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2 1.4-1.4zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4h-5.5zm.3 9.4-1.4 1.4 3.1 3.1-2 2H20v-5.5l-2 2-3.2-3z"/></svg></button>
+  <button class="nav orb on" id="cycle" title="Auto-change every 30 s" aria-label="Toggle auto-change" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 6V3L8 7l4 4V8a4 4 0 0 1 4 4 4 4 0 0 1-.5 1.9l1.5 1.5A6 6 0 0 0 12 6zm-4 6a4 4 0 0 1 .5-1.9L7 8.6A6 6 0 0 0 12 18v3l4-4-4-4v3a4 4 0 0 1-4-4z"/></svg></button>
+  <button class="nav orb hidden" id="play" title="Play / pause" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path id="playIcon" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
   <audio id="player" controls></audio>
   <div id="credit"></div>
   <div class="spacer"></div>
   <div id="source">No source</div>
-  <button class="chip" id="change">Change source</button>
-  <button class="orb" id="full" title="Full screen  F" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+  <button class="nav chip" id="change">Change source</button>
+  <button class="nav orb" id="full" title="Full screen  F" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
 </div>
 
 <input type="file" id="file" accept="audio/*,video/*" hidden>
@@ -196,16 +222,17 @@
     if (current) { try { current.stop(); } catch (e) {} }
     current = null;
     $('player').classList.remove('show');
+    $('play').classList.add('hidden');
   }
 
   function setSource(label) {
     $('source').textContent = label;
-    $('welcome').classList.add('hidden');
     $('error').textContent = '';
+    closeMenu();
   }
 
   function fail(msg) {
-    $('welcome').classList.remove('hidden');
+    openMenu();
     $('error').textContent = msg;
   }
 
@@ -269,6 +296,7 @@
     if (player.src.startsWith('blob:')) URL.revokeObjectURL(player.src);
     player.src = url;
     player.classList.add('show');
+    $('play').classList.remove('hidden');
     player.play().catch(() => {});
     current = {
       stop() {
@@ -362,6 +390,18 @@
   }
 
   /* ---------------- UI wiring ---------------- */
+  const body = document.body;
+  const welcome = $('welcome');
+  const bar = $('bar');
+
+  // Hide sources this browser can't do (most TV browsers can't share tabs or use a mic).
+  const md = navigator.mediaDevices;
+  if (!md || !md.getDisplayMedia) document.querySelector('[data-src=tab]').classList.add('hidden');
+  if (!md || !md.getUserMedia) document.querySelector('[data-src=mic]').classList.add('hidden');
+  const fsTarget = document.documentElement;
+  const canFull = !!(fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen);
+  if (!canFull) $('full').classList.add('hidden');
+
   document.querySelectorAll('.src').forEach((b) =>
     b.addEventListener('click', () => {
       const s = b.dataset.src;
@@ -374,32 +414,201 @@
   );
   $('file').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) useFile(f); e.target.value = ''; });
 
-  $('prev').onclick = () => engine.prev();
-  $('next').onclick = () => engine.next();
-  $('shuffle').onclick = () => engine.random();
-  $('cycle').onclick = () => {
+  function toggleCycle() {
     engine.autoCycle = !engine.autoCycle;
     $('cycle').classList.toggle('on', engine.autoCycle);
     $('cycle').setAttribute('aria-pressed', String(engine.autoCycle));
-  };
-  $('change').onclick = () => { $('welcome').classList.remove('hidden'); $('error').textContent = ''; };
-  $('welcome').addEventListener('click', (e) => { if (e.target.id === 'welcome' && current) $('welcome').classList.add('hidden'); });
+    toast(engine.autoCycle ? 'Auto-change on' : 'Auto-change off');
+  }
 
+  function togglePlay() {
+    if ($('player').classList.contains('show')) {
+      if (player.paused) player.play().catch(() => {}); else player.pause();
+    } else if (ctx) {
+      ctx.state === 'running' ? ctx.suspend() : ctx.resume();
+    }
+  }
+  function syncPlayIcon() {
+    $('playIcon').setAttribute('d', player.paused ? 'M8 5v14l11-7z' : 'M6 5h4v14H6zm8 0h4v14h-4z');
+  }
+  player.addEventListener('play', syncPlayIcon);
+  player.addEventListener('pause', syncPlayIcon);
+
+  $('prev').onclick = () => engine.prev();
+  $('next').onclick = () => engine.next();
+  $('shuffle').onclick = () => engine.random();
+  $('cycle').onclick = toggleCycle;
+  $('play').onclick = togglePlay;
+  $('change').onclick = () => openMenu();
+  welcome.addEventListener('click', (e) => { if (e.target === welcome && current) closeMenu(); });
+
+  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFull() {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else {
+      const r = (fsTarget.requestFullscreen || fsTarget.webkitRequestFullscreen).call(fsTarget);
+      if (r && r.catch) r.catch(() => {});
+    }
   }
   $('full').onclick = toggleFull;
-  document.addEventListener('fullscreenchange', () => document.body.classList.toggle('immersive', !!document.fullscreenElement));
   $('stage').addEventListener('dblclick', toggleFull);
+
+  /* ---- toast ---- */
+  let toastTimer = 0;
+  function toast(text, ms) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), ms || 1800);
+  }
+
+  /* ---- menu & control bar visibility ---- */
+  const menuOpen = () => !welcome.classList.contains('hidden');
+  const barShown = () => !body.classList.contains('bar-hidden');
+  let barTimer = 0;
+  let tippedRemote = false;
+
+  function openMenu() {
+    welcome.classList.remove('hidden');
+    $('error').textContent = '';
+    showBar(false);
+    const first = navTargets(welcome)[0];
+    if (first) first.focus();
+  }
+  function closeMenu() {
+    welcome.classList.add('hidden');
+    if (welcome.contains(document.activeElement)) document.activeElement.blur();
+    showBar(false);
+    if (body.classList.contains('using-keys') && !tippedRemote) {
+      tippedRemote = true;
+      toast('◀ ▶ change the visual · OK shows the controls', 4000);
+    }
+  }
+  function showBar(focusIt) {
+    body.classList.remove('bar-hidden', 'hide-cursor');
+    if (focusIt && !bar.contains(document.activeElement)) $('next').focus();
+    clearTimeout(barTimer);
+    barTimer = setTimeout(hideBar, 5000);
+  }
+  function hideBar() {
+    clearTimeout(barTimer);
+    // Keep the controls up while choosing a source or before anything plays.
+    if (menuOpen() || !current) return;
+    if (bar.contains(document.activeElement)) document.activeElement.blur();
+    body.classList.add('bar-hidden', 'hide-cursor');
+  }
+
+  /* ---- spatial navigation for the remote's arrow keys ---- */
+  function navTargets(scope) {
+    return Array.prototype.filter.call(scope.querySelectorAll('.nav'), (el) => el.offsetParent !== null && !el.disabled);
+  }
+  function moveFocus(dir, scope) {
+    const list = navTargets(scope);
+    if (!list.length) return;
+    const cur = document.activeElement;
+    if (list.indexOf(cur) < 0) { list[0].focus(); return; }
+    const r = cur.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let best = null, bestScore = Infinity;
+    for (const el of list) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect();
+      const dx = b.left + b.width / 2 - cx, dy = b.top + b.height / 2 - cy;
+      let score;
+      if (dir === 'left' || dir === 'right') {
+        if (dir === 'left' ? dx >= -1 : dx <= 1) continue;
+        if (b.bottom <= r.top || b.top >= r.bottom) continue; // same row only
+        score = Math.abs(dx) + Math.abs(dy) * 3;
+      } else {
+        if (dir === 'up' ? dy >= -1 : dy <= 1) continue;
+        score = Math.abs(dy) + Math.abs(dx) * 0.6;
+      }
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    if (best) best.focus();
+  }
+
+  /* ---- remote / keyboard ---- */
+  // Maps e.key / legacy keyCodes (Samsung Tizen, LG webOS, Android TV, Fire TV) to actions.
+  function action(e) {
+    const k = e.key, c = e.keyCode;
+    if (k === 'ArrowLeft' || k === 'Left' || c === 37) return 'left';
+    if (k === 'ArrowRight' || k === 'Right' || c === 39) return 'right';
+    if (k === 'ArrowUp' || k === 'Up' || c === 38) return 'up';
+    if (k === 'ArrowDown' || k === 'Down' || c === 40) return 'down';
+    if (k === 'Enter' || k === 'Select' || c === 13 || c === 23) return 'ok';
+    if (k === 'Escape' || k === 'Esc' || k === 'Backspace' || k === 'GoBack' || k === 'BrowserBack' ||
+        c === 27 || c === 8 || c === 10009 || c === 461) return 'back';
+    if (k === 'MediaPlayPause' || k === 'MediaPlay' || k === 'MediaPause' || k === 'MediaStop' || k === ' ' ||
+        c === 179 || c === 415 || c === 19 || c === 413 || c === 10252) return 'playpause';
+    if (k === 'MediaTrackNext' || k === 'MediaFastForward' || k === 'ChannelUp' || k === 'PageUp' || k === ']' ||
+        c === 176 || c === 417 || c === 427 || c === 33 || c === 228) return 'next';
+    if (k === 'MediaTrackPrevious' || k === 'MediaRewind' || k === 'ChannelDown' || k === 'PageDown' || k === '[' ||
+        c === 177 || c === 412 || c === 428 || c === 34 || c === 227) return 'prev';
+    if (k === 'ColorF0Red' || c === 403) return 'random';
+    if (k === 'ColorF1Green' || c === 404) return 'cycle';
+    if (k === 'ColorF2Yellow' || c === 405 || k === 'f' || k === 'F') return 'full';
+    if (k === 'ColorF3Blue' || c === 406 || k === 'm' || k === 'M') return 'menu';
+    if (/^[1-9]$/.test(k)) return 'preset' + k;
+    return null;
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === ']') engine.next();
-    else if (e.key === '[') engine.prev();
-    else if (e.key === 'f' || e.key === 'F') toggleFull();
-    else if (e.key === 'Escape' && current) $('welcome').classList.add('hidden');
-  });
+    const a = action(e);
+    if (!a) return;
+    body.classList.add('using-keys');
+    const focused = document.activeElement;
+    const onButton = focused && focused.classList && focused.classList.contains('nav');
+
+    // Let Space / Enter press a focused button the normal way.
+    if (a === 'playpause' && e.key === ' ' && onButton) return;
+
+    if (menuOpen()) {
+      if (a === 'left' || a === 'right' || a === 'up' || a === 'down') moveFocus(a, welcome);
+      else if (a === 'ok') { if (onButton && welcome.contains(focused)) focused.click(); else moveFocus('down', welcome); }
+      else if (a === 'back' || a === 'menu') { if (!current) return; closeMenu(); }
+      else if (!globalAction(a)) return;
+    } else if (barShown() && onButton && bar.contains(focused)) {
+      if (a === 'left' || a === 'right' || a === 'up') moveFocus(a, bar);
+      else if (a === 'ok') focused.click();
+      else if (a === 'down' || a === 'back') { hideBar(); }
+      else if (!globalAction(a)) return;
+      if (a !== 'down' && a !== 'back') showBar(false);
+    } else {
+      // Watching: the remote drives the visuals directly.
+      if (a === 'left') engine.prev();
+      else if (a === 'right') engine.next();
+      else if (a === 'ok' || a === 'up' || a === 'down') showBar(true);
+      else if (a === 'back') { if (barShown() && current) hideBar(); else if (current) openMenu(); else return; }
+      else if (!globalAction(a)) return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+
+  function globalAction(a) {
+    if (a === 'next') engine.next();
+    else if (a === 'prev') engine.prev();
+    else if (a === 'random') engine.random();
+    else if (a === 'cycle') toggleCycle();
+    else if (a === 'full') { if (canFull) toggleFull(); }
+    else if (a === 'menu') openMenu();
+    else if (a === 'playpause') togglePlay();
+    else if (a.indexOf('preset') === 0) {
+      const i = Number(a.slice(6)) - 1;
+      if (i < RetrowaveVisualizer.presetNames.length) engine.setPreset(i);
+    } else return false;
+    return true;
+  }
+
+  document.addEventListener('mousemove', () => { body.classList.remove('using-keys'); showBar(false); });
+  document.addEventListener('mousedown', () => body.classList.remove('using-keys'));
+
+  // Put focus on the first source so a remote's OK button works straight away.
+  const firstSrc = navTargets(welcome)[0];
+  if (firstSrc) firstSrc.focus();
 })();
 </script>
 </body>
