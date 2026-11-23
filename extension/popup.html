@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Retrowave Visualizer</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 300px;
+    font: 13px/1.4 "Segoe UI", Tahoma, Roboto, Arial, sans-serif;
+    color: #e6efff;
+    background: linear-gradient(180deg, #1b2a4a 0%, #0a1226 60%, #060a16 100%);
+  }
+  header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(120,170,255,0.25), rgba(120,170,255,0) );
+    border-bottom: 1px solid rgba(140,190,255,0.25);
+  }
+  header img { width: 28px; height: 28px; }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header p { margin: 0; font-size: 11px; color: #9fb6dc; }
+  main { padding: 12px 14px 14px; display: grid; gap: 12px; }
+  button.primary {
+    width: 100%; padding: 9px; border-radius: 6px; cursor: pointer;
+    border: 1px solid rgba(160,200,255,0.5);
+    background: linear-gradient(180deg, #4f86d9, #22477f);
+    color: #fff; font: inherit; font-weight: 600;
+  }
+  button.primary:hover { filter: brightness(1.15); }
+  label.row { display: grid; gap: 4px; }
+  .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #9fb6dc; }
+  select, input[type=number] {
+    width: 100%; padding: 6px 8px; border-radius: 5px;
+    border: 1px solid rgba(140,190,255,0.3); background: #0b1630; color: #e6efff; font: inherit;
+  }
+  .check { display: flex; align-items: center; gap: 8px; }
+  .inline { display: flex; gap: 8px; align-items: center; }
+  .inline input[type=number] { width: 70px; }
+  input[type=range] { width: 100%; }
+  .status { font-size: 11px; color: #9fb6dc; min-height: 1em; }
+  kbd { background: #0b1630; border: 1px solid #2c4470; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+  .keys { font-size: 11px; color: #9fb6dc; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icons/icon48.png" alt="">
+  <div>
+    <h1>Retrowave Visualizer</h1>
+    <p>Old-school visuals for YouTube</p>
+  </div>
+</header>
+<main>
+  <div>
+    <button class="primary" id="toggle">Show / hide on this tab</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <label class="row">
+    <span class="lbl">Start automatically</span>
+    <select id="autoStart">
+      <option value="music">When music is playing</option>
+      <option value="all">On every video</option>
+      <option value="off">Never (use the button or V)</option>
+    </select>
+  </label>
+
+  <label class="row">
+    <span class="lbl">Visualization</span>
+    <select id="preset"></select>
+  </label>
+
+  <div class="row">
+    <span class="lbl">Cycling</span>
+    <div class="inline">
+      <label class="check"><input type="checkbox" id="autoCycle"> Change every</label>
+      <input type="number" id="cycleSeconds" min="5" max="600" step="5"> s
+    </div>
+  </div>
+
+  <label class="row">
+    <span class="lbl">Display</span>
+    <select id="mode">
+      <option value="cover">Replace the video</option>
+      <option value="blend">Blend over the video</option>
+    </select>
+  </label>
+
+  <label class="row" id="opacityRow">
+    <span class="lbl">Blend strength</span>
+    <input type="range" id="blendOpacity" min="0.2" max="1" step="0.05">
+  </label>
+
+  <div class="keys"><kbd>V</kbd> toggle &nbsp; <kbd>[</kbd> <kbd>]</kbd> previous / next</div>
+</main>
+<script src="visualizer.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrowave Visualizer</title>
+<link rel="icon" href="extension/icons/icon32.png">
+<style>
+  :root {
+    --bg: #04070f;
+    --panel-top: #2a3d63;
+    --panel-bot: #0b1428;
+    --edge: rgba(140, 190, 255, 0.28);
+    --text: #e6efff;
+    --muted: #93a9cf;
+    --accent: #4fa3ff;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 "Segoe UI", Tahoma, Roboto, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #stage { position: relative; flex: 1; min-height: 0; background: #000; }
+  #viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  #title {
+    position: absolute; left: 18px; top: 16px;
+    padding: 6px 12px; border-radius: 4px;
+    background: linear-gradient(180deg, rgba(40,70,120,.75), rgba(10,20,45,.75));
+    border: 1px solid var(--edge);
+    font-weight: 600; text-shadow: 0 1px 2px #000;
+    opacity: 0; transform: translateY(-6px); transition: opacity .4s, transform .4s;
+    pointer-events: none;
+  }
+  #title.show { opacity: 1; transform: none; }
+
+  /* Welcome card */
+  #welcome {
+    position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+    background: radial-gradient(ellipse at center, rgba(4,8,20,.55), rgba(0,0,0,.85));
+  }
+  #welcome.hidden { display: none; }
+  .card {
+    width: min(600px, 100%);
+    background: linear-gradient(180deg, var(--panel-top), var(--panel-bot));
+    border: 1px solid var(--edge); border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.12);
+    padding: 22px 22px 18px;
+  }
+  .card h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: .01em; }
+  .card p { margin: 0 0 14px; color: var(--muted); }
+  .sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 560px) { .sources { grid-template-columns: 1fr; } }
+  .src {
+    text-align: left; cursor: pointer; font: inherit; color: var(--text);
+    padding: 12px 14px; border-radius: 8px;
+    border: 1px solid var(--edge);
+    background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.01));
+  }
+  .src:hover { border-color: var(--accent); background: linear-gradient(180deg, rgba(79,163,255,.22), rgba(79,163,255,.05)); }
+  .src b { display: block; margin-bottom: 2px; }
+  .src span { color: var(--muted); font-size: 12px; }
+  .src.featured { grid-column: 1 / -1; }
+  .tip { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .tip a { color: var(--accent); }
+  #error { margin-top: 10px; color: #ff8f8f; font-size: 13px; min-height: 1em; }
+
+  /* Transport bar */
+  #bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, var(--panel-top), var(--panel-bot));
+    border-top: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  body.immersive #bar { display: none; }
+  .orb {
+    width: 38px; height: 38px; border-radius: 50%; padding: 0; cursor: pointer;
+    display: grid; place-items: center; color: var(--text);
+    border: 1px solid rgba(160,200,255,.45);
+    background: radial-gradient(circle at 50% 28%, #6c9ae0, #1a3260 70%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .orb:hover { filter: brightness(1.2); }
+  .orb.on { background: radial-gradient(circle at 50% 28%, #7fd0ff, #1f6bb0 70%); }
+  .orb svg { width: 18px; height: 18px; fill: currentColor; }
+  #presetName {
+    min-width: 140px; padding: 6px 12px; border-radius: 5px;
+    background: #050b18; border: 1px solid var(--edge);
+    font-family: Consolas, "Courier New", monospace; font-size: 13px; color: #9fe3ff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .spacer { flex: 1; }
+  #source { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+  .chip {
+    font: inherit; font-size: 12px; cursor: pointer; color: var(--text);
+    padding: 6px 10px; border-radius: 14px; border: 1px solid var(--edge); background: rgba(255,255,255,.05);
+  }
+  .chip:hover { border-color: var(--accent); }
+  #player { height: 30px; max-width: 260px; display: none; }
+  #player.show { display: block; }
+  @media (max-width: 600px) { #source { display: none; } #presetName { min-width: 0; flex: 1; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="viz"></canvas>
+  <div id="title"></div>
+
+  <div id="welcome">
+    <div class="card">
+      <h1>Retrowave Visualizer</h1>
+      <p>Old-school media player visualizations for whatever you're listening to. Pick a sound source:</p>
+      <div class="sources">
+        <button class="src featured" data-src="tab"><b>Share a YouTube tab</b><span>Choose the tab in the picker and turn on “Share tab audio”. Chrome or Edge.</span></button>
+        <button class="src" data-src="file"><b>Open an audio file</b><span>MP3, WAV, M4A, OGG…</span></button>
+        <button class="src" data-src="mic"><b>Microphone</b><span>Visualize the room.</span></button>
+        <button class="src" data-src="demo"><b>Demo beat</b><span>A built-in synth loop to preview the visuals.</span></button>
+      </div>
+      <div id="error" role="alert"></div>
+      <div class="tip">Want it right on top of the YouTube player instead? Install the browser extension in the <code>extension/</code> folder (see the README). It starts on its own when music plays.</div>
+    </div>
+  </div>
+</div>
+
+<div id="bar">
+  <button class="orb" id="prev" title="Previous visualization  [" aria-label="Previous visualization"><svg viewBox="0 0 24 24"><path d="M15.5 5 8.5 12l7 7 1.4-1.4L11.3 12l5.6-5.6z"/></svg></button>
+  <div id="presetName"></div>
+  <button class="orb" id="next" title="Next visualization  ]" aria-label="Next visualization"><svg viewBox="0 0 24 24"><path d="M8.5 5 7.1 6.4l5.6 5.6-5.6 5.6L8.5 19l7-7z"/></svg></button>
+  <button class="orb" id="shuffle" title="Random visualization" aria-label="Random visualization"><svg viewBox="0 0 24 24"><path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2 1.4-1.4zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4h-5.5zm.3 9.4-1.4 1.4 3.1 3.1-2 2H20v-5.5l-2 2-3.2-3z"/></svg></button>
+  <button class="orb on" id="cycle" title="Auto-change every 30 s" aria-label="Toggle auto-change" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M12 6V3L8 7l4 4V8a4 4 0 0 1 4 4 4 4 0 0 1-.5 1.9l1.5 1.5A6 6 0 0 0 12 6zm-4 6a4 4 0 0 1 .5-1.9L7 8.6A6 6 0 0 0 12 18v3l4-4-4-4v3a4 4 0 0 1-4-4z"/></svg></button>
+  <audio id="player" controls></audio>
+  <div class="spacer"></div>
+  <div id="source">No source</div>
+  <button class="chip" id="change">Change source</button>
+  <button class="orb" id="full" title="Full screen  F" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+</div>
+
+<input type="file" id="file" accept="audio/*,video/*" hidden>
+
+<script src="extension/visualizer.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const titleEl = $('title');
+  let titleTimer = 0;
+
+  const engine = new RetrowaveVisualizer($('viz'), {
+    autoCycle: true,
+    cycleSeconds: 30,
+    onPresetChange: (_i, name) => showTitle(name),
+  });
+  engine.start();
+
+  function showTitle(name) {
+    $('presetName').textContent = name;
+    titleEl.textContent = name;
+    titleEl.classList.add('show');
+    clearTimeout(titleTimer);
+    titleTimer = setTimeout(() => titleEl.classList.remove('show'), 2600);
+  }
+  showTitle(engine.presetName);
+
+  /* ---------------- audio sources ---------------- */
+  let ctx = null;
+  let analyser = null;
+  let current = null; // { stop() }
+
+  function audio() {
+    if (!ctx) {
+      ctx = new AudioContext();
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.78;
+      engine.setAnalyser(analyser);
+    }
+    if (ctx.state !== 'running') ctx.resume();
+    return ctx;
+  }
+
+  function stopCurrent() {
+    if (current) { try { current.stop(); } catch (e) {} }
+    current = null;
+    $('player').classList.remove('show');
+  }
+
+  function setSource(label) {
+    $('source').textContent = label;
+    $('welcome').classList.add('hidden');
+    $('error').textContent = '';
+  }
+
+  function fail(msg) {
+    $('welcome').classList.remove('hidden');
+    $('error').textContent = msg;
+  }
+
+  async function useTab() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      return fail('This browser cannot share tab audio. Try Chrome or Edge on a computer, or use the extension.');
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        preferCurrentTab: false,
+        selfBrowserSurface: 'exclude',
+        systemAudio: 'include',
+      });
+    } catch (e) {
+      return fail('Sharing was cancelled.');
+    }
+    const tracks = stream.getAudioTracks();
+    if (!tracks.length) {
+      stream.getTracks().forEach((t) => t.stop());
+      return fail('No audio came through. In the picker choose a Chrome tab and make sure “Share tab audio” is on.');
+    }
+    stopCurrent();
+    const c = audio();
+    const src = c.createMediaStreamSource(new MediaStream(tracks));
+    src.connect(analyser); // not to the speakers: the tab already plays its own sound
+    current = { stop() { src.disconnect(); stream.getTracks().forEach((t) => t.stop()); } };
+    tracks[0].addEventListener('ended', () => { if (current) { stopCurrent(); fail('Tab sharing stopped. Pick a source to continue.'); } });
+    setSource('Tab audio: ' + (tracks[0].label || 'shared tab'));
+  }
+
+  async function useMic() {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+    } catch (e) {
+      return fail('Microphone access was blocked.');
+    }
+    stopCurrent();
+    const c = audio();
+    const src = c.createMediaStreamSource(stream);
+    src.connect(analyser);
+    current = { stop() { src.disconnect(); stream.getTracks().forEach((t) => t.stop()); } };
+    setSource('Microphone');
+  }
+
+  const player = $('player');
+  let playerSrc = null;
+  function useFile(file) {
+    stopCurrent();
+    const c = audio();
+    if (!playerSrc) {
+      playerSrc = c.createMediaElementSource(player);
+    }
+    playerSrc.connect(analyser);
+    analyser.connect(c.destination);
+    if (player.src) URL.revokeObjectURL(player.src);
+    player.src = URL.createObjectURL(file);
+    player.classList.add('show');
+    player.play().catch(() => {});
+    current = {
+      stop() {
+        player.pause();
+        playerSrc.disconnect();
+        try { analyser.disconnect(c.destination); } catch (e) {}
+      },
+    };
+    setSource(file.name);
+  }
+
+  // Small built-in synth loop so the visuals can be previewed without any media.
+  function useDemo() {
+    stopCurrent();
+    const c = audio();
+    const out = c.createGain();
+    out.gain.value = 0.5;
+    out.connect(analyser);
+    analyser.connect(c.destination);
+
+    const noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+
+    const bpm = 118;
+    const step = 60 / bpm / 4; // 16th notes
+    const roots = [45, 41, 48, 43]; // A, F, C, G (midi)
+    const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+    let n = 0;
+    let nextTime = c.currentTime + 0.1;
+
+    function kick(t) {
+      const o = c.createOscillator(), g = c.createGain();
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+      g.gain.setValueAtTime(1, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.connect(g).connect(out); o.start(t); o.stop(t + 0.45);
+    }
+    function noise(t, dur, hp, vol) {
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      s.connect(f).connect(g).connect(out); s.start(t); s.stop(t + dur + 0.02);
+    }
+    function tone(t, midi, dur, type, vol, cutoff) {
+      const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+      o.type = type; o.frequency.value = mtof(midi);
+      f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t); f.frequency.exponentialRampToValueAtTime(cutoff * 0.3, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(f).connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
+    }
+
+    const timer = setInterval(() => {
+      while (nextTime < c.currentTime + 0.2) {
+        const s = n % 16;
+        const bar = Math.floor(n / 16) % 4;
+        const root = roots[bar];
+        if (s % 4 === 0) kick(nextTime);
+        if (s === 4 || s === 12) noise(nextTime, 0.18, 1500, 0.5);
+        if (s % 2 === 1) noise(nextTime, 0.05, 7000, 0.18);
+        if ([0, 3, 6, 8, 11, 14].includes(s)) tone(nextTime, root, step * 1.8, 'sawtooth', 0.35, 900);
+        if (s === 0) [12, 16, 19, 24].forEach((iv, k) => tone(nextTime, root + iv + (k === 1 && bar % 2 ? -1 : 0), step * 15, 'triangle', 0.07, 3000));
+        if (s % 4 === 2) tone(nextTime, root + 24 + [0, 7, 12, 7][(n / 4 | 0) % 4], step * 1.5, 'square', 0.05, 4000);
+        nextTime += step;
+        n++;
+      }
+    }, 50);
+    current = { stop() { clearInterval(timer); out.disconnect(); try { analyser.disconnect(c.destination); } catch (e) {} } };
+    setSource('Demo beat');
+  }
+
+  /* ---------------- UI wiring ---------------- */
+  document.querySelectorAll('.src').forEach((b) =>
+    b.addEventListener('click', () => {
+      const s = b.dataset.src;
+      if (s === 'tab') useTab();
+      else if (s === 'mic') useMic();
+      else if (s === 'demo') useDemo();
+      else if (s === 'file') $('file').click();
+    })
+  );
+  $('file').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) useFile(f); e.target.value = ''; });
+
+  $('prev').onclick = () => engine.prev();
+  $('next').onclick = () => engine.next();
+  $('shuffle').onclick = () => engine.random();
+  $('cycle').onclick = () => {
+    engine.autoCycle = !engine.autoCycle;
+    $('cycle').classList.toggle('on', engine.autoCycle);
+    $('cycle').setAttribute('aria-pressed', String(engine.autoCycle));
+  };
+  $('change').onclick = () => { $('welcome').classList.remove('hidden'); $('error').textContent = ''; };
+  $('welcome').addEventListener('click', (e) => { if (e.target.id === 'welcome' && current) $('welcome').classList.add('hidden'); });
+
+  function toggleFull() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+  $('full').onclick = toggleFull;
+  document.addEventListener('fullscreenchange', () => document.body.classList.toggle('immersive', !!document.fullscreenElement));
+  $('stage').addEventListener('dblclick', toggleFull);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === ']') engine.next();
+    else if (e.key === '[') engine.prev();
+    else if (e.key === 'f' || e.key === 'F') toggleFull();
+    else if (e.key === 'Escape' && current) $('welcome').classList.add('hidden');
+  });
+})();
+</script>
+</body>
+</html>

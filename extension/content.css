@@ -1,0 +1,119 @@
+/* Retrowave Visualizer overlay (injected into YouTube / YouTube Music) */
+
+.rw-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 36; /* above the video, below YouTube's control bar & captions */
+  display: none;
+  background: #000;
+  pointer-events: none; /* clicks fall through to the player (play/pause etc.) */
+  overflow: hidden;
+  font-family: "Segoe UI", Tahoma, Roboto, Arial, sans-serif;
+}
+.rw-overlay.rw-music { z-index: 5; }
+.rw-overlay.rw-visible { display: block; }
+
+.rw-overlay.rw-blend {
+  background: transparent;
+  mix-blend-mode: screen;
+  opacity: var(--rw-blend-opacity, 0.7);
+}
+
+.rw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.rw-title {
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(40, 70, 120, 0.75), rgba(10, 20, 45, 0.75));
+  border: 1px solid rgba(140, 190, 255, 0.35);
+  color: #eaf4ff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px #000;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.4s, transform 0.4s;
+}
+.rw-title.rw-show { opacity: 1; transform: none; }
+
+.rw-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.rw-hint.rw-show { opacity: 1; }
+
+.rw-hud {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.rw-overlay.rw-hud-on .rw-hud {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rw-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(160, 200, 255, 0.4);
+  background: radial-gradient(circle at 50% 30%, rgba(90, 130, 200, 0.85), rgba(15, 25, 55, 0.9));
+  color: #eaf4ff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.rw-btn:hover { filter: brightness(1.25); }
+.rw-btn:focus-visible { outline: 2px solid #8fd0ff; outline-offset: 2px; }
+
+/* Toggle button inside YouTube's control bar */
+.rw-ytp-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  vertical-align: top;
+}
+.rw-ytp-toggle svg { width: 26px; height: 26px; }
+.rw-ytp-toggle.rw-active { color: #3ea6ff; }
+
+/* Toggle button in the YouTube Music player bar */
+.rw-music-toggle {
+  background: none;
+  border: 0;
+  color: rgba(255, 255, 255, 0.7);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.rw-music-toggle:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.rw-music-toggle.rw-active { color: #ff4e45; }
